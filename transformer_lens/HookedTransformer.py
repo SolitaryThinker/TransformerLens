@@ -35,6 +35,8 @@ from packaging import version
 from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedTokenizerBase
 from typing_extensions import Literal
 
+from vllm.model_executor.guided_decoding.outlines_logits_processors import BaseLogitsProcessor
+
 import transformer_lens.loading_from_pretrained as loading
 import transformer_lens.utils as utils
 from transformer_lens.ActivationCache import ActivationCache
@@ -2023,6 +2025,7 @@ class HookedTransformer(HookedRootModule):
         padding_side: Optional[Literal["left", "right"]] = USE_DEFAULT_VALUE,
         return_type: Optional[str] = "input",
         verbose: bool = True,
+        logits_processor: Optional[BaseLogitsProcessor] = None,
     ) -> Union[Int[torch.Tensor, "batch pos_plus_new_tokens"], str]:
         """Sample Tokens from the Model.
 
@@ -2077,6 +2080,7 @@ class HookedTransformer(HookedRootModule):
         with utils.LocallyOverridenDefaults(
             self, prepend_bos=prepend_bos, padding_side=padding_side
         ):
+            toks = []
             if type(input) == str:
                 # If text, convert to tokens (batch_size=1)
                 assert (
@@ -2166,6 +2170,20 @@ class HookedTransformer(HookedRootModule):
                     )
                 final_logits = logits[:, -1, :]
 
+                if logits_processor is not None:
+                    # print("shape of tokens", tokens.shape)
+                    # print("shape of final_logits", final_logits.shape)
+                    # print("logits", final_logits)
+                    # final_logits = logits_processor(tokens.squeeze().tolist(), final_logits)
+                    # print("toks", toks)
+                    final_logits = logits_processor(toks, final_logits.squeeze())
+                    final_logits = final_logits.unsqueeze(0)
+                    # print("logits after", final_logits)
+                    # print top 20 logits
+                    # print('top 20', final_logits.topk(20))
+
+                    # print('max', final_logits.max())
+
                 if do_sample:
                     sampled_tokens = utils.sample_logits(
                         final_logits,
@@ -2179,6 +2197,13 @@ class HookedTransformer(HookedRootModule):
                     sampled_tokens = final_logits.argmax(-1).to(
                         devices.get_device_for_block_index(0, self.cfg)
                     )
+                toks.append(sampled_tokens[0].item())
+                # if len(toks) == 0:
+                #     toks.append(sampled_tokens[0])
+                # else:
+                #     toks[0] = sampled_tokens[0]
+                # print("sampled_tokens", sampled_tokens[0])
+                # print('stop_tokens', stop_tokens)
 
                 if stop_at_eos:
                     # For all unfinished sequences, add on the next token. If a sequence was

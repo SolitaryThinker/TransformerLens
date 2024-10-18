@@ -17,6 +17,7 @@ from transformers import (
     AutoModelForCausalLM,
     BertForPreTraining,
     T5ForConditionalGeneration,
+    LlamaForCausalLM,
 )
 
 import transformer_lens.utils as utils
@@ -149,6 +150,7 @@ OFFICIAL_MODEL_NAMES = [
     "CodeLlama-7b-Instruct-hf",
     "meta-llama/Meta-Llama-3-8B",
     "meta-llama/Meta-Llama-3-8B-Instruct",
+    "meta-llama/Llama-3.1-8B-Instruct",
     "meta-llama/Meta-Llama-3-70B",
     "meta-llama/Meta-Llama-3-70B-Instruct",
     "meta-llama/Llama-3.2-1B",
@@ -858,6 +860,26 @@ def convert_hf_model_config(model_name: str, **kwargs):
             "n_heads": 32,
             "d_mlp": 14336,
             "n_layers": 32,
+            "n_ctx": 8192,
+            "eps": 1e-5,
+            "d_vocab": 128256,
+            "act_fn": "silu",
+            "n_key_value_heads": 8,
+            "normalization_type": "RMS",
+            "positional_embedding_type": "rotary",
+            "rotary_adjacent_pairs": False,
+            "rotary_dim": 128,
+            "final_rms": True,
+            "gated_mlp": True,
+        }
+    elif "Llama-3.1-8B" in official_model_name:
+        cfg_dict ={
+            "d_model": 4096,
+            "d_head": 128,
+            "n_heads": 32,
+            "d_mlp": 14336,
+            "n_layers": 32,
+            # "n_ctx": 131072,
             "n_ctx": 8192,
             "eps": 1e-5,
             "d_vocab": 128256,
@@ -1743,6 +1765,13 @@ def get_pretrained_state_dict(
                 )
             elif "t5" in official_model_name:
                 hf_model = T5ForConditionalGeneration.from_pretrained(
+                    official_model_name,
+                    torch_dtype=dtype,
+                    token=huggingface_token,
+                    **kwargs,
+                )
+            elif "Llama-3.1" in official_model_name:
+                hf_model = LlamaForCausalLM.from_pretrained(
                     official_model_name,
                     torch_dtype=dtype,
                     token=huggingface_token,
