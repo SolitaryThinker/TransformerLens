@@ -2080,7 +2080,6 @@ class HookedTransformer(HookedRootModule):
         with utils.LocallyOverridenDefaults(
             self, prepend_bos=prepend_bos, padding_side=padding_side
         ):
-            toks = []
             if type(input) == str:
                 # If text, convert to tokens (batch_size=1)
                 assert (
@@ -2098,6 +2097,7 @@ class HookedTransformer(HookedRootModule):
 
             assert isinstance(tokens, torch.Tensor)
             batch_size, ctx_length = tokens.shape
+            toks = batch_size * [[]]
             device = devices.get_device_for_block_index(0, self.cfg)
             tokens = tokens.to(device)
             if use_past_kv_cache:
@@ -2171,13 +2171,14 @@ class HookedTransformer(HookedRootModule):
                 final_logits = logits[:, -1, :]
 
                 if logits_processor is not None:
-                    # print("shape of tokens", tokens.shape)
-                    # print("shape of final_logits", final_logits.shape)
-                    # print("logits", final_logits)
-                    # final_logits = logits_processor(tokens.squeeze().tolist(), final_logits)
-                    # print("toks", toks)
-                    final_logits = logits_processor(toks, final_logits.squeeze())
-                    final_logits = final_logits.unsqueeze(0)
+                    for i in range(batch_size):
+                        # print("shape of tokens", tokens.shape)
+                        # print("shape of final_logits", final_logits.shape)
+                        # print("logits", final_logits)
+                        # final_logits = logits_processor(tokens.squeeze().tolist(), final_logits)
+                        # print("toks", toks)
+                        final_logits[i] = logits_processor(toks[i], final_logits[i])
+                        # final_logits = final_logits.unsqueeze(0)
                     # print("logits after", final_logits)
                     # print top 20 logits
                     # print('top 20', final_logits.topk(20))
@@ -2197,7 +2198,10 @@ class HookedTransformer(HookedRootModule):
                     sampled_tokens = final_logits.argmax(-1).to(
                         devices.get_device_for_block_index(0, self.cfg)
                     )
-                toks.append(sampled_tokens[0].item())
+                if logits_processor is not None:
+                    # print("sampled_tokens", sampled_tokens.shape)
+                    for i in range(batch_size):
+                        toks[i].append(sampled_tokens[i].item())
                 # if len(toks) == 0:
                 #     toks.append(sampled_tokens[0])
                 # else:
