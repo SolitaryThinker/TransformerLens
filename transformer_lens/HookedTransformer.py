@@ -115,6 +115,7 @@ class HookedTransformer(HookedRootModule):
         tokenizer: Optional[PreTrainedTokenizerBase] = None,
         move_to_device: bool = True,
         default_padding_side: Literal["left", "right"] = "right",
+        load_weights: bool = True,
     ):
         """Model initialization.
 
@@ -176,6 +177,9 @@ class HookedTransformer(HookedRootModule):
                 logging.warning(
                     "default_padding_side is explictly given but ignored because tokenizer is not set."
                 )
+
+        if not load_weights:
+            return
 
         self.embed = Embed(self.cfg)
         self.hook_embed = HookPoint()  # [batch, pos, d_model]
@@ -1086,6 +1090,7 @@ class HookedTransformer(HookedRootModule):
         default_padding_side: Literal["left", "right"] = "right",
         dtype="float32",
         first_n_layers: Optional[int] = None,
+        load_weights: bool = True,
         **from_pretrained_kwargs,
     ) -> T:
         """Load in a Pretrained Model.
@@ -1320,6 +1325,7 @@ class HookedTransformer(HookedRootModule):
             tokenizer,
             move_to_device=False,
             default_padding_side=default_padding_side,
+            load_weights=load_weights,
         )
 
         model.load_and_process_state_dict(
@@ -1350,6 +1356,7 @@ class HookedTransformer(HookedRootModule):
         dtype=torch.float32,
         default_prepend_bos=True,
         default_padding_side="right",
+        load_weights=True,
         **from_pretrained_kwargs,
     ):
         """Wrapper for from_pretrained.
@@ -1367,6 +1374,7 @@ class HookedTransformer(HookedRootModule):
             dtype=dtype,
             default_prepend_bos=default_prepend_bos,
             default_padding_side=default_padding_side,
+            load_weights=load_weights,
             **from_pretrained_kwargs,
         )
 
